@@ -322,7 +322,7 @@ void assemble_poisson(EquationSystems & es,
             for (unsigned int j=0; j<phi.size(); j++)
               {
                 const Real x = q_point[qp](0);
-                Ke(i,j) += JxW[qp]*(dphi[i][qp]*dphi[j][qp])*x;
+                Ke(i,j) += JxW[qp]*(dphi[i][qp]*dphi[j][qp] + phi[i][qp]*phi[j][qp]/x/x )*x;
               }
 
           // This is the end of the matrix summation loop
@@ -354,7 +354,7 @@ void assemble_poisson(EquationSystems & es,
                                exact_solution(x-eps, y) +
                                exact_solution(x+eps, y) -
                                4.*exact_solution(x, y))/eps/eps;
-            const Real fxyz = pival*pival*exact_solution(x,y)/2.0 + pival * sin(pival/2.0*x) * sin(pival/2.0*y)/2.0/x; 
+            const Real fxyz = pival*pival*exact_solution(x,y)/2.0 + pival * sin(pival/2.0*x) * sin(pival/2.0*y)/2.0/x + exact_solution(x,y)/x/x ; 
             for (unsigned int i=0; i<phi.size(); i++)
               Fe(i) += JxW[qp]*fxyz*phi[i][qp]*x;
           }
