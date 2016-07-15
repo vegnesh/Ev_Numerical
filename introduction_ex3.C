@@ -32,6 +32,7 @@
 #include <iostream>
 #include <algorithm>
 #include <math.h>
+#include "helmsys.h"
 //#include "evsol.h"
 #include "libmesh/tecplot_io.h"
 // Basic include files needed for the mesh functionality.
@@ -104,9 +105,9 @@ int main (int argc, char ** argv)
   // elements instead of the default QUAD4's we used in example 2
   // allow us to use higher-order approximation.
   MeshTools::Generation::build_square (mesh,
-                                       15, 15,
+                                       30, 30,
                                        0., 1.,
-                                       -1., 1.,
+                                       -2., 3.,
                                        QUAD9);
 
   // Print information about the mesh to the screen.
@@ -181,6 +182,15 @@ void assemble_poisson(EquationSystems & es,
   // the proper system.
   libmesh_assert_equal_to (system_name, "Poisson");
   const Real pival = libMesh::pi;
+     //  ************ VARIABLES FOR MY COMPUTATIONS ***********************   
+       char filename[100];
+       getfilename(filename);
+       int noc;
+       double coilcoords[NCOILMAX][2];
+       getcoilcoords(coilcoords,noc,filename);
+       Real Max_x, Max_y,Min_x,Min_y,xval,yval;
+                               
+     //  ************ VARIABLES FOR MY COMPUTATIONS ***********************   
 
   // Get a constant reference to the mesh object.
   const MeshBase & mesh = es.get_mesh();
@@ -208,13 +218,13 @@ void assemble_poisson(EquationSystems & es,
   // describes some advantages of  UniquePtr's in the context of
   // quadrature rules.
   UniquePtr<FEBase> fe (FEBase::build(dim, fe_type));
-
+  UniquePtr<FEBase> fe2 (FEBase::build(dim, fe_type));
   // A 5th order Gauss quadrature rule for numerical integration.
   QGauss qrule (dim, FIFTH);
 
   // Tell the finite element object to use our quadrature rule.
   fe->attach_quadrature_rule (&qrule);
-
+  fe2->attach_quadrature_rule (&qrule);
   // Declare a special finite element object for
   // boundary integration.
   UniquePtr<FEBase> fe_face (FEBase::build(dim, fe_type));
@@ -241,7 +251,7 @@ void assemble_poisson(EquationSystems & es,
 
   // The element shape functions evaluated at the quadrature points.
   const std::vector<std::vector<Real> > & phi = fe->get_phi();
-
+  const std::vector<std::vector<Real>> & phi2 = fe2->get_phi();
   // The element shape function gradients evaluated at the quadrature
   // points.
   const std::vector<std::vector<RealGradient> > & dphi = fe->get_dphi();
@@ -259,7 +269,8 @@ void assemble_poisson(EquationSystems & es,
   // the element.  These define where in the global system
   // the element degrees of freedom get mapped.
   std::vector<dof_id_type> dof_indices;
-
+  std::vector<Point> pts;
+  std::vector<Point> refelpts;
   // Now we will loop over all the elements in the mesh.
   // We will compute the element matrix and right-hand-side
   // contribution.
@@ -283,6 +294,51 @@ void assemble_poisson(EquationSystems & es,
       // Store a pointer to the element we are currently
       // working on.  This allows for nicer syntax later.
       const Elem * elem = *el;
+       
+      pts.resize(1);
+      refelpts.resize(1);
+      bool flag = false;
+      unsigned int coilid = 0;
+      for(unsigned int n=0; n<elem->n_nodes(); n++)
+     {
+                           // Matrix contribution.
+ 
+			 Node *node = elem->get_node(n);
+
+                         Point poi = *node;
+                         const Real xf = poi(0);
+                         const Real yf = poi(1);     
+                         if (n==0)
+                         {
+                             Max_x = xf;
+                             Min_x = xf;
+                             Max_y = yf;
+                             Min_y = yf;
+                         }
+                         else
+                         {
+                             if(xf<Min_x)
+                                 Min_x = xf;
+                             if(xf>Max_x)
+                                 Max_x = xf;
+                             if(yf<Min_y)
+                                 Min_y = yf;
+                             if(yf>Max_y)
+                                 Max_y = yf;
+        
+                         }
+      }
+      for (unsigned int n = 0;n<noc ; n++)
+      {
+         if(coilcoords[n][0]<=Max_x && coilcoords[n][0]>=Min_x && coilcoords[n][1]>=Min_y && coilcoords[n][1]<=Max_y )
+         {
+             flag = !flag;
+             coilid = n;
+             pts[0](0) = coilcoords[n][0];
+             pts[0](1) = coilcoords[n][1];
+             std::cout <<"\n Cx:"<<pts[0](0)<<" Cy:"<<pts[0](1)<<Max_x<<" "<<Min_x<<" "<<Max_y<<" "<<Min_y<<std::endl;
+         }
+      }
 
       // Get the degree of freedom indices for the
       // current element.  These define where in the global
@@ -309,6 +365,20 @@ void assemble_poisson(EquationSystems & es,
                  dof_indices.size());
 
       Fe.resize (dof_indices.size());
+ 
+      if(flag)
+      {    std::cout<<"\n NEW ELEMENT \n";
+           FEInterface::inverse_map(elem->dim(),fe_type,elem,pts,refelpts);
+           std::cout<<"\n X:" << pts[0](0) << " Y:" << pts[0](1) << " Rx:" << refelpts[0](0)<<" Ry:" << refelpts[0](1)<<std::endl;
+           
+           fe2->reinit (elem,&refelpts);         
+
+        for(unsigned i=0;i<phi.size();i++)
+        std::cout<<"i:"<<i<<"Phi:"<<phi2[i][0]<<std::endl;
+
+
+
+      }
 
       // Now loop over the quadrature points.  This handles
       // the numeric integration.
@@ -355,10 +425,18 @@ void assemble_poisson(EquationSystems & es,
                                exact_solution(x+eps, y) -
                                4.*exact_solution(x, y))/eps/eps;
             const Real fxyz = pival*pival*exact_solution(x,y)/2.0 + pival * sin(pival/2.0*x) * sin(pival/2.0*y)/2.0/x + exact_solution(x,y)/x/x ; 
+            const Real fxyza = 0.0;
             for (unsigned int i=0; i<phi.size(); i++)
-              Fe(i) += JxW[qp]*fxyz*phi[i][qp]*x;
+              Fe(i) += JxW[qp]*fxyza*phi[i][qp]*x;
           }
-        }
+        }   
+
+            if(flag){
+            for (unsigned int i=0;i<phi.size();i++)
+            {
+              Fe(i) +=  2.0*phi2[i][0]*2.0*pival*27.0/10.0*pts[0](0);    
+
+            }}    
 
       // We have now reached the end of the RHS summation,
       // and the end of quadrature point loop, so
@@ -429,6 +507,7 @@ void assemble_poisson(EquationSystems & es,
 
                   // The boundary value.
                   const Real value = exact_solution(xf, yf);
+                  const Real value2 = 0.0;
 
                   // Matrix contribution of the L2 projection.
                   for (unsigned int i=0; i<phi_face.size(); i++)
@@ -438,7 +517,7 @@ void assemble_poisson(EquationSystems & es,
                   // Right-hand-side contribution of the L2
                   // projection.
                   for (unsigned int i=0; i<phi_face.size(); i++)
-                    Fe(i) += JxW_face[qp]*penalty*value*phi_face[i][qp]*xf;
+                    Fe(i) += JxW_face[qp]*penalty*value2*phi_face[i][qp]*xf;
                 }
             }
       }

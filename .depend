@@ -10,6 +10,9 @@ exact_solution.$(obj-suffix):\
     /home/vegnesh/codes/jvinstall/include/libmesh/libmesh_nullptr.h\
     /home/vegnesh/codes/jvinstall/include/libmesh/ostream_proxy.h\
     /home/vegnesh/codes/jvinstall/include/libmesh/restore_warnings.h
+helmsys.$(obj-suffix):\
+    helmsys.C\
+    helmsys.h
 introduction_ex3.$(obj-suffix):\
     introduction_ex3.C\
     /home/vegnesh/codes/jvinstall/include/libmesh/auto_ptr.h\
@@ -119,4 +122,5 @@ introduction_ex3.$(obj-suffix):\
     /home/vegnesh/codes/jvinstall/include/libmesh/variable.h\
     /home/vegnesh/codes/jvinstall/include/libmesh/variant_filter_iterator.h\
     /home/vegnesh/codes/jvinstall/include/libmesh/vector_value.h\
-    /home/vegnesh/codes/jvinstall/include/libmesh/vtk_io.h
+    /home/vegnesh/codes/jvinstall/include/libmesh/vtk_io.h\
+    helmsys.h
