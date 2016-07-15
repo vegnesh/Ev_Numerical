@@ -1,0 +1,5 @@
+*.o
+*.plt
+example-opt
+*.png
+

@@ -105,7 +105,7 @@ int main (int argc, char ** argv)
   // allow us to use higher-order approximation.
   MeshTools::Generation::build_square (mesh,
                                        15, 15,
-                                       -1., 1.,
+                                       0., 1.,
                                        -1., 1.,
                                        QUAD9);
 
@@ -180,7 +180,7 @@ void assemble_poisson(EquationSystems & es,
   // It is a good idea to make sure we are assembling
   // the proper system.
   libmesh_assert_equal_to (system_name, "Poisson");
-
+  const Real pival = libMesh::pi;
 
   // Get a constant reference to the mesh object.
   const MeshBase & mesh = es.get_mesh();
@@ -321,7 +321,8 @@ void assemble_poisson(EquationSystems & es,
           for (unsigned int i=0; i<phi.size(); i++)
             for (unsigned int j=0; j<phi.size(); j++)
               {
-                Ke(i,j) += JxW[qp]*(dphi[i][qp]*dphi[j][qp]);
+                const Real x = q_point[qp](0);
+                Ke(i,j) += JxW[qp]*(dphi[i][qp]*dphi[j][qp])*x;
               }
 
           // This is the end of the matrix summation loop
@@ -353,9 +354,9 @@ void assemble_poisson(EquationSystems & es,
                                exact_solution(x-eps, y) +
                                exact_solution(x+eps, y) -
                                4.*exact_solution(x, y))/eps/eps;
-
+            const Real fxyz = pival*pival*exact_solution(x,y)/2.0 + pival * sin(pival/2.0*x) * sin(pival/2.0*y)/2.0/x; 
             for (unsigned int i=0; i<phi.size(); i++)
-              Fe(i) += JxW[qp]*fxy*phi[i][qp];
+              Fe(i) += JxW[qp]*fxyz*phi[i][qp]*x;
           }
         }
 
@@ -432,12 +433,12 @@ void assemble_poisson(EquationSystems & es,
                   // Matrix contribution of the L2 projection.
                   for (unsigned int i=0; i<phi_face.size(); i++)
                     for (unsigned int j=0; j<phi_face.size(); j++)
-                      Ke(i,j) += JxW_face[qp]*penalty*phi_face[i][qp]*phi_face[j][qp];
+                      Ke(i,j) += JxW_face[qp]*penalty*phi_face[i][qp]*phi_face[j][qp]*xf;
 
                   // Right-hand-side contribution of the L2
                   // projection.
                   for (unsigned int i=0; i<phi_face.size(); i++)
-                    Fe(i) += JxW_face[qp]*penalty*value*phi_face[i][qp];
+                    Fe(i) += JxW_face[qp]*penalty*value*phi_face[i][qp]*xf;
                 }
             }
       }
